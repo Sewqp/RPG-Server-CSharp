@@ -467,10 +467,8 @@ classDiagram
 erDiagram
     player {
         bigint      player_id   PK  "AUTO_INCREMENT"
-        varchar30   username    UK  "NOT NULL"
-        varchar30   nickname        "NOT NULL"
-        int         job_code        "NOT NULL"
-        int         state_code      "DEFAULT 1"
+        varchar30   pname           "NOT NULL"
+        tinyint     status          "0=정상 1=정지 2=영구밴"
         datetime    created_at      "DEFAULT CURRENT_TIMESTAMP"
         datetime    updated_at      "ON UPDATE CURRENT_TIMESTAMP"
     }
@@ -486,9 +484,46 @@ erDiagram
         int     last_map_id     "NOT NULL"
     }
 
+    item_definition {
+        int         item_def_id     PK  "AUTO_INCREMENT"
+        varchar50   item_name           "NOT NULL"
+        text        item_desc
+        tinyint     item_type           "0=장비 1=소모품"
+        datetime    created_at          "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    item_instance {
+        bigint      item_instance_id    PK  "AUTO_INCREMENT"
+        int         item_def_id         FK  "FK → item_definition"
+        tinyint     item_status             "0=정상 1=밴 2=만료"
+        datetime    expired_at              "NULL=영구 / 날짜=기간제"
+    }
+
+    inventory {
+        bigint      inventory_id        PK  "AUTO_INCREMENT"
+        bigint      player_id           FK  "FK → player"
+        bigint      item_instance_id    FK  "FK → item_instance"
+        int         item_count              "DEFAULT 1"
+        datetime    acquired_at             "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    guild {
+        bigint      guild_id    PK  "AUTO_INCREMENT"
+        varchar30   guild_name      "NOT NULL UNIQUE"
+        tinyint     guild_status    "0=정상 1=해산"
+        datetime    created_at      "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    guild_member {
+        bigint  guild_id    PK  "FK → guild"
+        bigint  player_id   PK  "FK → player"
+        tinyint role            "0=일반 1=부길드장 2=길드장"
+        datetime joined_at      "DEFAULT CURRENT_TIMESTAMP"
+    }
+
     channel {
-        varchar50   channel_id      PK  "NOT NULL"
-        tinyint     channel_type        "DEFAULT 0"
+        varchar50   channel_id      PK
+        tinyint     channel_type        "0=일반 1=길드"
         datetime    created_at          "DEFAULT CURRENT_TIMESTAMP"
     }
 
@@ -507,6 +542,11 @@ erDiagram
     }
 
     player          ||--||  character_stat  : "1:1  ON DELETE CASCADE"
+    player          ||--o{  inventory       : "1:N"
+    player          ||--o{  guild_member    : "1:N"
     player          ||--o{  match_player    : "1:N"
+    guild           ||--o{  guild_member    : "1:N"
+    inventory       }o--||  item_instance   : "N:1"
+    item_instance   }o--||  item_definition : "N:1"
     match_history   ||--o{  match_player    : "1:N"
 ```
