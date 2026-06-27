@@ -335,3 +335,178 @@ sequenceDiagram
     CS ->> CS : DisconnectAsync() — stream.Close()
     LOG ->> LOG : Log("Session Disconnected.")
 ```
+
+---
+
+## DB Layer Class Diagram
+
+```mermaid
+classDiagram
+    class DbConnectionPool {
+        -SemaphoreSlim _semaphore
+        -Stack~MySqlConnection~ _pool
+        +POOL_SIZE = 10
+        +Init(connStr string)
+        +RentAsync() Task~MySqlConnection~
+        +Return(conn MySqlConnection)
+    }
+
+    class RedisClient {
+        <<Singleton>>
+        -ConnectionMultiplexer _mux
+        -IDatabase _db
+        +Init(connStr string)
+        +SetAsync(key string, value string, expiry TimeSpan) Task
+        +GetAsync(key string) Task~string?~
+        +DeleteAsync(key string) Task
+        +SetAddAsync(key string, member string) Task
+        +SetPopAllAsync(key string) Task~string[]~
+    }
+
+    class SyncWorker {
+        -DbConnectionPool _dbPool
+        -RedisClient _redis
+        -TimeSpan _interval
+        +SYNC_INTERVAL = 30s
+        +StartAsync() Task
+        +StopAsync() Task
+        -FlushDirtyAsync() Task
+    }
+
+    class PlayerRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(player PlayerModel) Task~long~
+        +FindByIdAsync(playerId long) Task~PlayerModel?~
+        +UpdateAsync(player PlayerModel) Task
+    }
+
+    class CharacterStatRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(stat CharacterStatModel) Task
+        +FindByPlayerIdAsync(playerId long) Task~CharacterStatModel?~
+        +UpdateAsync(stat CharacterStatModel) Task
+        +BatchUpdateAsync(stats List~CharacterStatModel~) Task
+    }
+
+    class ChannelRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(channel ChannelModel) Task
+        +FindByIdAsync(channelId string) Task~ChannelModel?~
+        +GetAllAsync() Task~List~ChannelModel~~
+    }
+
+    class MatchRepository {
+        -DbConnectionPool _pool
+        +InsertMatchAsync(match MatchHistoryModel) Task~long~
+        +InsertMatchPlayersAsync(matchId long, playerIds List~long~) Task
+        +GetRecentByPlayerAsync(playerId long) Task~List~MatchHistoryModel~~
+    }
+
+    class PlayerModel {
+        +long PlayerId
+        +string Username
+        +string Nickname
+        +int JobCode
+        +int StateCode
+        +DateTime CreatedAt
+        +DateTime UpdatedAt
+    }
+
+    class CharacterStatModel {
+        +long PlayerId
+        +int Level
+        +int HpMax
+        +int Hp
+        +int MpMax
+        +int Mp
+        +bool IsAlive
+        +int LastMapId
+    }
+
+    class ChannelModel {
+        +string ChannelId
+        +int ChannelType
+        +DateTime CreatedAt
+    }
+
+    class MatchHistoryModel {
+        +long MatchId
+        +int MatchType
+        +int PlayerCount
+        +DateTime StartedAt
+        +DateTime EndedAt
+    }
+
+    class MatchPlayerModel {
+        +long MatchId
+        +long PlayerId
+        +int Result
+    }
+
+    SyncWorker --> DbConnectionPool : uses
+    SyncWorker --> RedisClient : SetPopAllAsync dirty_characters
+    PlayerRepository --> DbConnectionPool : RentAsync / Return
+    CharacterStatRepository --> DbConnectionPool : RentAsync / Return
+    ChannelRepository --> DbConnectionPool : RentAsync / Return
+    MatchRepository --> DbConnectionPool : RentAsync / Return
+    PlayerRepository ..> PlayerModel : returns
+    CharacterStatRepository ..> CharacterStatModel : returns
+    ChannelRepository ..> ChannelModel : returns
+    MatchRepository ..> MatchHistoryModel : returns
+    MatchRepository ..> MatchPlayerModel : returns
+    CharacterStatModel --> PlayerModel : PlayerId FK
+    MatchPlayerModel --> PlayerModel : PlayerId FK
+    MatchPlayerModel --> MatchHistoryModel : MatchId FK
+```
+
+---
+
+## ERD — MySQL 테이블 관계
+
+```mermaid
+erDiagram
+    player {
+        bigint      player_id   PK  "AUTO_INCREMENT"
+        varchar30   username    UK  "NOT NULL"
+        varchar30   nickname        "NOT NULL"
+        int         job_code        "NOT NULL"
+        int         state_code      "DEFAULT 1"
+        datetime    created_at      "DEFAULT CURRENT_TIMESTAMP"
+        datetime    updated_at      "ON UPDATE CURRENT_TIMESTAMP"
+    }
+
+    character_stat {
+        bigint  player_id   PK  "FK → player"
+        int     level           "DEFAULT 1"
+        int     hp_max          "NOT NULL"
+        int     hp              "NOT NULL"
+        int     mp_max          "NOT NULL"
+        int     mp              "NOT NULL"
+        tinyint is_alive        "DEFAULT 1"
+        int     last_map_id     "NOT NULL"
+    }
+
+    channel {
+        varchar50   channel_id      PK  "NOT NULL"
+        tinyint     channel_type        "DEFAULT 0"
+        datetime    created_at          "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    match_history {
+        bigint      match_id        PK  "AUTO_INCREMENT"
+        tinyint     match_type          "NOT NULL"
+        int         player_count        "NOT NULL"
+        datetime    started_at          "NOT NULL"
+        datetime    ended_at
+    }
+
+    match_player {
+        bigint  match_id    PK  "FK → match_history"
+        bigint  player_id   PK  "FK → player"
+        tinyint result          "0=패 1=승"
+    }
+
+    player          ||--||  character_stat  : "1:1  ON DELETE CASCADE"
+    player          ||--o{  match_player    : "1:N"
+    match_history   ||--o{  match_player    : "1:N"
+```
