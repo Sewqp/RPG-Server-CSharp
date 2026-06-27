@@ -373,11 +373,12 @@ classDiagram
         -FlushDirtyAsync() Task
     }
 
+    %% ── Repositories ───────────────────────────────────────────
     class PlayerRepository {
         -DbConnectionPool _pool
         +InsertAsync(player PlayerModel) Task~long~
         +FindByIdAsync(playerId long) Task~PlayerModel?~
-        +UpdateAsync(player PlayerModel) Task
+        +UpdateStatusAsync(playerId long, status byte) Task
     }
 
     class CharacterStatRepository {
@@ -386,6 +387,38 @@ classDiagram
         +FindByPlayerIdAsync(playerId long) Task~CharacterStatModel?~
         +UpdateAsync(stat CharacterStatModel) Task
         +BatchUpdateAsync(stats List~CharacterStatModel~) Task
+    }
+
+    class ItemDefinitionRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(def ItemDefinitionModel) Task~int~
+        +FindByIdAsync(itemDefId int) Task~ItemDefinitionModel?~
+        +GetAllAsync() Task~List~ItemDefinitionModel~~
+    }
+
+    class ItemInstanceRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(inst ItemInstanceModel) Task~long~
+        +FindByIdAsync(instanceId long) Task~ItemInstanceModel?~
+        +UpdateStatusAsync(instanceId long, status byte) Task
+    }
+
+    class InventoryRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(inv InventoryModel) Task~long~
+        +FindByPlayerIdAsync(playerId long) Task~List~InventoryModel~~
+        +UpdateCountAsync(inventoryId long, count int) Task
+        +DeleteAsync(inventoryId long) Task
+    }
+
+    class GuildRepository {
+        -DbConnectionPool _pool
+        +InsertAsync(guild GuildModel) Task~long~
+        +FindByIdAsync(guildId long) Task~GuildModel?~
+        +UpdateStatusAsync(guildId long, status byte) Task
+        +GetMembersAsync(guildId long) Task~List~GuildMemberModel~~
+        +AddMemberAsync(member GuildMemberModel) Task
+        +RemoveMemberAsync(guildId long, playerId long) Task
     }
 
     class ChannelRepository {
@@ -398,16 +431,15 @@ classDiagram
     class MatchRepository {
         -DbConnectionPool _pool
         +InsertMatchAsync(match MatchHistoryModel) Task~long~
-        +InsertMatchPlayersAsync(matchId long, playerIds List~long~) Task
+        +InsertMatchPlayersAsync(matchId long, players List~MatchPlayerModel~) Task
         +GetRecentByPlayerAsync(playerId long) Task~List~MatchHistoryModel~~
     }
 
+    %% ── Models ─────────────────────────────────────────────────
     class PlayerModel {
         +long PlayerId
-        +string Username
-        +string Nickname
-        +int JobCode
-        +int StateCode
+        +string Pname
+        +byte Status
         +DateTime CreatedAt
         +DateTime UpdatedAt
     }
@@ -423,15 +455,52 @@ classDiagram
         +int LastMapId
     }
 
+    class ItemDefinitionModel {
+        +int ItemDefId
+        +string ItemName
+        +string ItemDesc
+        +byte ItemType
+        +DateTime CreatedAt
+    }
+
+    class ItemInstanceModel {
+        +long ItemInstanceId
+        +int ItemDefId
+        +byte ItemStatus
+        +DateTime? ExpiredAt
+    }
+
+    class InventoryModel {
+        +long InventoryId
+        +long PlayerId
+        +long ItemInstanceId
+        +int ItemCount
+        +DateTime AcquiredAt
+    }
+
+    class GuildModel {
+        +long GuildId
+        +string GuildName
+        +byte GuildStatus
+        +DateTime CreatedAt
+    }
+
+    class GuildMemberModel {
+        +long GuildId
+        +long PlayerId
+        +byte Role
+        +DateTime JoinedAt
+    }
+
     class ChannelModel {
         +string ChannelId
-        +int ChannelType
+        +byte ChannelType
         +DateTime CreatedAt
     }
 
     class MatchHistoryModel {
         +long MatchId
-        +int MatchType
+        +byte MatchType
         +int PlayerCount
         +DateTime StartedAt
         +DateTime EndedAt
@@ -440,23 +509,41 @@ classDiagram
     class MatchPlayerModel {
         +long MatchId
         +long PlayerId
-        +int Result
+        +byte Result
     }
 
+    %% ── Relationships ───────────────────────────────────────────
     SyncWorker --> DbConnectionPool : uses
     SyncWorker --> RedisClient : SetPopAllAsync dirty_characters
+
     PlayerRepository --> DbConnectionPool : RentAsync / Return
     CharacterStatRepository --> DbConnectionPool : RentAsync / Return
+    ItemDefinitionRepository --> DbConnectionPool : RentAsync / Return
+    ItemInstanceRepository --> DbConnectionPool : RentAsync / Return
+    InventoryRepository --> DbConnectionPool : RentAsync / Return
+    GuildRepository --> DbConnectionPool : RentAsync / Return
     ChannelRepository --> DbConnectionPool : RentAsync / Return
     MatchRepository --> DbConnectionPool : RentAsync / Return
+
     PlayerRepository ..> PlayerModel : returns
     CharacterStatRepository ..> CharacterStatModel : returns
+    ItemDefinitionRepository ..> ItemDefinitionModel : returns
+    ItemInstanceRepository ..> ItemInstanceModel : returns
+    InventoryRepository ..> InventoryModel : returns
+    GuildRepository ..> GuildModel : returns
+    GuildRepository ..> GuildMemberModel : returns
     ChannelRepository ..> ChannelModel : returns
     MatchRepository ..> MatchHistoryModel : returns
     MatchRepository ..> MatchPlayerModel : returns
+
     CharacterStatModel --> PlayerModel : PlayerId FK
-    MatchPlayerModel --> PlayerModel : PlayerId FK
+    InventoryModel --> PlayerModel : PlayerId FK
+    InventoryModel --> ItemInstanceModel : ItemInstanceId FK
+    ItemInstanceModel --> ItemDefinitionModel : ItemDefId FK
+    GuildMemberModel --> GuildModel : GuildId FK
+    GuildMemberModel --> PlayerModel : PlayerId FK
     MatchPlayerModel --> MatchHistoryModel : MatchId FK
+    MatchPlayerModel --> PlayerModel : PlayerId FK
 ```
 
 ---
