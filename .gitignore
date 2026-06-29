@@ -1,0 +1,12 @@
+# Relations PDF (로컬 문서)
+*_Relations.pdf
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# OS
+.DS_Store
+Thumbs.db
