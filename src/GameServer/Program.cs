@@ -1,11 +1,23 @@
+using GameServer.Config;
+using GameServer.DB;
 using GameServer.Network;
 
-var server = new TcpServer(9000);
+var config = ServerConfig.Instance;
 
-Console.CancelKeyPress += async (_, e) =>
+DbConnectionPool.Instance.Init(config.MySqlConnectionString);
+Console.WriteLine("[DB] MySQL connection pool ready.");
+
+RedisClient.Instance.Init(config.RedisConnectionString);
+Console.WriteLine("[DB] Redis connected.");
+
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
 {
     e.Cancel = true;
-    await server.StopAsync();
+    cts.Cancel();
 };
 
+_ = new SyncWorker(cts.Token).RunAsync();
+
+var server = new TcpServer(config.TcpPort, cts.Token);
 await server.StartAsync();

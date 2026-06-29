@@ -6,10 +6,13 @@ namespace GameServer.Network;
 public sealed class TcpServer
 {
     private readonly TcpListener _listener;
-    private readonly CancellationTokenSource _cts = new();
+    private readonly CancellationToken _ct;
 
-    public TcpServer(int port)
-        => _listener = new TcpListener(IPAddress.Any, port);
+    public TcpServer(int port, CancellationToken cancellationToken = default)
+    {
+        _listener = new TcpListener(IPAddress.Any, port);
+        _ct = cancellationToken;
+    }
 
     public async Task StartAsync()
     {
@@ -20,7 +23,6 @@ public sealed class TcpServer
 
     public Task StopAsync()
     {
-        _cts.Cancel();
         _listener.Stop();
         Console.WriteLine("[TcpServer] Stopped.");
         return Task.CompletedTask;
@@ -28,12 +30,12 @@ public sealed class TcpServer
 
     private async Task AcceptLoopAsync()
     {
-        while (!_cts.Token.IsCancellationRequested)
+        while (!_ct.IsCancellationRequested)
         {
             try
             {
-                var client = await _listener.AcceptTcpClientAsync(_cts.Token);
-                var session = new ClientSession(client, _cts.Token);
+                var client = await _listener.AcceptTcpClientAsync(_ct);
+                var session = new ClientSession(client, _ct);
                 SessionManager.Instance.Add(session);
                 Console.WriteLine($"[TcpServer] Session connected: {session.SessionId} (total: {SessionManager.Instance.Count})");
                 _ = session.StartAsync();
