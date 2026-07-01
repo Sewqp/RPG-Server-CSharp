@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using GameServer.Packet;
+using GameServer.Service;
 
 namespace GameServer.Network;
 
@@ -13,6 +14,9 @@ public sealed class ClientSession
 
     public Guid SessionId { get; } = Guid.NewGuid();
     public long PlayerId { get; set; }
+    public DateTime LastReceivedAt { get; private set; } = DateTime.UtcNow;
+
+    public void UpdateLastReceived() => LastReceivedAt = DateTime.UtcNow;
 
     public ClientSession(TcpClient client, CancellationToken ct)
     {
@@ -48,6 +52,8 @@ public sealed class ClientSession
 
     public Task DisconnectAsync()
     {
+        ChannelManager.Instance.LeaveAll(SessionId);
+        SessionManager.Instance.UnregisterPlayerId(PlayerId);
         SessionManager.Instance.Remove(SessionId);
         _stream.Close();
         _client.Close();
@@ -63,6 +69,7 @@ public sealed class ClientSession
             int read = await _stream.ReadAsync(buffer, _ct);
             if (read == 0) break;
 
+            UpdateLastReceived();
             if (!_recvBuffer.Write(buffer.AsSpan(0, read))) break;
 
             Memory<byte>? packet;

@@ -12,4 +12,5 @@ public enum PacketId : ushort
     MatchResult      = 3001,
     Heartbeat        = 9000,
     ReconnectRequest = 9001,
+    ReconnectResult  = 9002,
 }

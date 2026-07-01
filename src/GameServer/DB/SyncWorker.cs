@@ -43,7 +43,7 @@ public sealed class SyncWorker
         await db.SetRemoveAsync("dirty_characters", members);
 
         var tasks = members
-            .Select(m => long.TryParse(m, out var id) ? id : (long?)null)
+            .Select(m => long.TryParse((string?)m, out var id) ? id : (long?)null)
             .Where(id => id.HasValue)
             .Select(id => FlushOneAsync(id!.Value));
 

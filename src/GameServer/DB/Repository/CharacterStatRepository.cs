@@ -19,7 +19,7 @@ public sealed class CharacterStatRepository
         var db = RedisClient.Instance.Db;
         var cached = await db.StringGetAsync(CacheKey(playerId));
         if (cached.HasValue)
-            return JsonSerializer.Deserialize<CharacterStatModel>(cached!);
+            return JsonSerializer.Deserialize<CharacterStatModel>((string)cached!);
 
         var model = await FetchFromDbAsync(playerId);
         if (model != null)
@@ -52,7 +52,7 @@ public sealed class CharacterStatRepository
     {
         var cached = await RedisClient.Instance.Db.StringGetAsync(CacheKey(playerId));
         return cached.HasValue
-            ? JsonSerializer.Deserialize<CharacterStatModel>(cached!)
+            ? JsonSerializer.Deserialize<CharacterStatModel>((string)cached!)
             : null;
     }
 

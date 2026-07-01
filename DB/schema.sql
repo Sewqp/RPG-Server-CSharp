@@ -1,11 +1,11 @@
 -- Game-Server-CSharp Schema
 -- MySQL 8.x / utf8mb4
 
-CREATE DATABASE IF NOT EXISTS game_server_schema
+CREATE DATABASE IF NOT EXISTS game_server_cs
     DEFAULT CHARACTER SET utf8mb4
     DEFAULT COLLATE utf8mb4_bin;
 
-USE game_server_schema;
+USE game_server_cs;
 
 -- ──────────────────────────────────────────────────────────────
 -- player
